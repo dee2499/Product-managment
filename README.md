@@ -17,16 +17,98 @@ Admins can add, edit, and remove products. Standard users can search the catalog
 
 ## Running the project
 
-The simplest way to run the project is with Docker.
+You can run this project in three different environments depending on your preference and setup:
 
-```bash
-docker compose up --build -d
-./deploy.sh
-```
+### Option 1: Docker Compose (Recommended)
 
-The application will then be available at [http://localhost:8000](http://localhost:8000).
+This compiles and runs the entire stack (PHP 8.3, Apache, MySQL 8, Node.js) in containers.
 
-`deploy.sh` creates `.env` from `.env.example` when needed, installs Composer and npm dependencies, generates the application key, runs migrations and seeders, builds assets, and caches the Laravel configuration.
+1. Configure `.env` database block to point to the docker `db` container:
+   ```env
+   DB_CONNECTION=mysql
+   DB_HOST=db
+   DB_PORT=3306
+   DB_DATABASE=ekahal
+   DB_USERNAME=root
+   DB_PASSWORD=password
+   ```
+2. Build and run the containers:
+   ```bash
+   docker compose up --build -d
+   ```
+3. Run the deployment and seeder script:
+   ```bash
+   chmod +x deploy.sh
+   ./deploy.sh
+   ```
+   *(Or run `make build && make deploy` if make is installed).*
+4. Access the application at **[http://localhost:8000](http://localhost:8000)**.
+
+---
+
+### Option 2: Native Host Machine (with SQLite)
+
+This is the simplest way to run without Docker or a dedicated database server, writing database entries to a single local file.
+
+1. Ensure **PHP 8.3/8.2**, **Composer**, and **Node.js/npm** are installed locally.
+2. Create an empty SQLite file:
+   ```bash
+   touch database/database.sqlite
+   ```
+3. Configure `.env` database connection to `sqlite`:
+   ```env
+   DB_CONNECTION=sqlite
+   ```
+   *(Comment out or delete other `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` variables).*
+4. Set up the project dependencies:
+   ```bash
+   composer install
+   php artisan key:generate
+   php artisan storage:link
+   php artisan migrate --seed
+   npm install
+   npm run build
+   ```
+5. Run the server:
+   ```bash
+   php artisan serve
+   ```
+6. Access the application at **[http://127.0.0.1:8000](http://127.0.0.1:8000)**.
+
+---
+
+### Option 3: Native Host Machine (with local MySQL)
+
+If you prefer running a native local MySQL server instead of SQLite or Docker.
+
+1. Ensure **PHP 8.3/8.2**, **Composer**, **Node.js/npm**, and a running **MySQL Server** are installed.
+2. Create a new MySQL database:
+   ```sql
+   CREATE DATABASE ekahal;
+   ```
+3. Configure `.env` to connect to your local MySQL:
+   ```env
+   DB_CONNECTION=mysql
+   DB_HOST=127.0.0.1
+   DB_PORT=3306        # Update if you use a different port (e.g., 8889 for MAMP)
+   DB_DATABASE=ekahal
+   DB_USERNAME=root    # Your local MySQL username
+   DB_PASSWORD=root    # Your local MySQL password
+   ```
+4. Set up the project dependencies:
+   ```bash
+   composer install
+   php artisan key:generate
+   php artisan storage:link
+   php artisan migrate --seed
+   npm install
+   npm run build
+   ```
+5. Run the server:
+   ```bash
+   php artisan serve
+   ```
+6. Access the application at **[http://127.0.0.1:8000](http://127.0.0.1:8000)**.
 
 ### Demo accounts
 
@@ -39,11 +121,17 @@ The database seeder also adds a small set of sample products so the catalogue is
 
 ## Tests
 
-Run the test suite with:
+Run the test suite depending on your environment:
 
-```bash
-php artisan test
-```
+* **Docker**:
+  ```bash
+  docker compose exec -T app php artisan test
+  ```
+  *(Or run `make test`)*
+* **Native (SQLite or MySQL)**:
+  ```bash
+  php artisan test
+  ```
 
 The tests cover login-related flows, product validation, the CRUD workflow, catalogue search, and the difference between admin and standard-user permissions.
 
@@ -92,10 +180,9 @@ For a larger application, I would make a few changes first:
 
 - replace simple `LIKE` search with full-text search or a search service once product volume justifies it;
 - add caching for frequently viewed catalogue pages;
-- move long-running work, such as imports and image processing, onto queues;
-- store uploads in object storage rather than on the application server;
-- add audit logs and more granular permissions; and
+- move long-running work, such as imports and image processin, into laravel queues;
 - introduce tenant scoping if the product catalogue was shared by multiple organisations.
+- Configure Laravel's filesystem to use the s3 driver to store uploaded files directly in an object storage bucket.
 
 ## Project layout
 
